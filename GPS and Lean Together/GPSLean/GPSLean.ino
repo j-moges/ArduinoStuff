@@ -70,6 +70,28 @@ void setup() {
   delay(1000);
   // Ask for firmware version
   mySerial.println(PMTK_Q_RELEASE);
+/*---------------
+  END GPS - START LEAN 
+  ----------------*/
+    Serial.begin(9600);
+  Serial.println("Orientation Sensor Test"); Serial.println("");
+  
+  /* Initialise the sensor */
+  if(!bno.begin())
+  {
+    /* There was a problem detecting the BNO055 ... check your connections */
+    Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
+    while(1);
+  }
+  
+  delay(1000);
+    
+  /* Display some basic information on this sensor */
+  displaySensorDetails();
+
+  bno.setExtCrystalUse(true);
+  
+  
 }
 
 // Interrupt is called once a millisecond, looks for any new GPS data, and stores it
@@ -192,5 +214,19 @@ void loop() {
 /*--------
   END GPS - Start Lean angle
   --------*/
+  /* Get a new sensor event */ 
+  sensors_event_t event; 
+  bno.getEvent(&event);
+  
+  /* Display the floating point data */
+  //Serial.print("X: ");
+  //Serial.print(event.orientation.x, 4);
+  Serial.print("\tY: ");
+  Serial.print(event.orientation.y, 4);
+  //Serial.print("\tZ: ");
+  //Serial.print(event.orientation.z, 4);
+  Serial.println("");
+  
+  delay(BNO055_SAMPLERATE_DELAY_MS);
   
 }

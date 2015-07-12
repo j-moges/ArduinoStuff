@@ -120,7 +120,7 @@ void setup()
   pinMode(10, OUTPUT);
 
   // see if the card is present and can be initialized:
-  if (!SD.begin(10, 11, 12, 13)) {
+  if (!SD.begin(chipSelect, 11, 12, 13)) {
     //if (!SD.begin(chipSelect)) {      // if you're using an UNO, you can use this line instead
     Serial.println("Card init. failed!");
     error(2);

@@ -185,7 +185,7 @@ void setup()
 
 
   //Title line, add or remove as you add and remove logging items
-  logfile.println("GPS Location");
+  logfile.println("GPS Location, Time, GPS Speed, Lean Angle");
 
   //----------------------------------
   // BNO055 SETUP
@@ -322,6 +322,19 @@ void loop()                     // run over and over again
     Serial.print(lat + " " + lon + ", ");
     //Writes data to SD card
     logfile.print(lat + " " + lon + ", ");
+    
+    Serial.print(GPS.hour, DEC); Serial.print(':');
+    Serial.print(GPS.minute, DEC); Serial.print(":");
+    Serial.print(GPS.seconds, DEC);  Serial.print(", ");
+    //Write time to SD card
+    logfile.print(GPS.hour, DEC); logfile.print(':');
+    logfile.print(GPS.minute, DEC); logfile.print(':');
+    logfile.print(GPS.seconds, DEC);  logfile.print(", ");
+    
+    //GPS Speed
+    Serial.print(GPS.speed); Serial.print(', ');
+    logfile.print(GPS.speed); logfile.print(', ');
+
 
     /* Get a new sensor event - BNO055 */
     sensors_event_t event;

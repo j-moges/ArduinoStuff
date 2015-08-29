@@ -2,20 +2,6 @@
 Converts the GPS location so that you can directly input into google maps
 */
 
-
-// Test code for Adafruit GPS modules using MTK3329/MTK3339 driver
-//
-// This code shows how to listen to the GPS module in an interrupt
-// which allows the program to have more 'freedom' - just parse
-// when a new NMEA sentence is available! Then access data when
-// desired.
-//
-// Tested and works great with the Adafruit Ultimate GPS module
-// using MTK33x9 chipset
-//    ------> http://www.adafruit.com/products/746
-// Pick one up today at the Adafruit electronics shop
-// and help support open source hardware & software! -ada
-
 #include <Adafruit_GPS.h>
 #include <SoftwareSerial.h>
 #include <SPI.h>
@@ -26,29 +12,6 @@ Converts the GPS location so that you can directly input into google maps
 #include <Adafruit_BNO055.h>
 #include <utility/imumaths.h>
 
-// If you're using a GPS module:
-// Connect the GPS Power pin to 5V
-// Connect the GPS Ground pin to ground
-// If using software serial (sketch example default):
-//   Connect the GPS TX (transmit) pin to Digital 3
-//   Connect the GPS RX (receive) pin to Digital 2
-// If using hardware serial (e.g. Arduino Mega):
-//   Connect the GPS TX (transmit) pin to Arduino RX3
-//   Connect the GPS RX (receive) pin to matching TX3
-
-// If you're using the Adafruit GPS shield, change
-// SoftwareSerial mySerial(3, 2); -> SoftwareSerial mySerial(8, 7);
-// and make sure the switch is set to SoftSerial
-
-// If using software serial, keep this line enabled
-// (you can change the pin numbers to match your wiring):
-//SoftwareSerial mySerial(8, 7);
-
-// If using hardware serial (e.g. Arduino Mega), comment out the
-// above SoftwareSerial line, and enable this line instead
-// (you can change the Serial number to match your wiring):
-
-//HardwareSerial mySerial = Serial1;
 #define mySerial Serial1
 
 
@@ -66,8 +29,6 @@ Adafruit_BNO055 bno = Adafruit_BNO055(55);
 /* set to true to only log to SD when GPS has a fix, for debugging, keep it false */
 #define LOG_FIXONLY false
 
-// this keeps track of whether we're using the interrupt
-// off by default!
 boolean usingInterrupt = false;
 void useInterrupt(boolean); // Func prototype keeps Arduino 0023 happy
 
@@ -93,14 +54,6 @@ uint8_t parseHex(char c) {
 
 // blink out an error code
 void error(uint8_t errno) {
-  /*
-  if (SD.errorCode()) {
-   putstring("SD error: ");
-   Serial.print(card.errorCode(), HEX);
-   Serial.print(',');
-   Serial.println(card.errorData(), HEX);
-   }
-   */
   while (1) {
     uint8_t i;
     for (i = 0; i < errno; i++) {
@@ -118,7 +71,6 @@ void error(uint8_t errno) {
 char filename[15];
 void setup()
 {
-
   // connect at 115200 so we can read the GPS fast enough and echo without dropping chars
   // also spit it out
   Serial.begin(115200);
@@ -131,8 +83,8 @@ void setup()
   pinMode(53, OUTPUT);
 
   // see if the card is present and can be initialized:
-  //if (!SD.begin(chipSelect, 11, 12, 13)) {
-  if (!SD.begin(chipSelect)) {      // if you're using an UNO, you can use this line instead
+  //if (!SD.begin(chipSelect)) {      
+  if (!SD.begin(chipSelect)) {  
     Serial.println("Card init. failed!");
     error(2);
   }
@@ -201,7 +153,6 @@ void setup()
   }
   delay(1000);
   bno.setExtCrystalUse(true);
-
 }
 
 
@@ -210,8 +161,6 @@ SIGNAL(TIMER0_COMPA_vect) {
   char c = GPS.read();
   // if you want to debug, this is a good time to do it!
 #ifdef UDR0
-  //if (GPSECHO)
-  //if (c) UDR0 = c;
   // writing direct to UDR0 is much much faster than Serial.print
   // but only one character can be written at a time.
 #endif
@@ -232,16 +181,13 @@ void useInterrupt(boolean v) {
 }
 
 uint32_t timer = millis();
-void loop()                     // run over and over again
+void loop()
 {
   // in case you are not using the interrupt above, you'll
   // need to 'hand query' the GPS, not suggested :(
   if (! usingInterrupt) {
     // read data from the GPS in the 'main loop'
     char c = GPS.read();
-    // if you want to debug, this is a good time to do it!
-    //if (GPSECHO)
-    //if (c) Serial.print(c);
   }
 
   // if a sentence is received, we can check the checksum, parse it...
@@ -271,7 +217,7 @@ void loop()                     // run over and over again
   Serial.print(GPS.day, DEC); Serial.print('/');
   Serial.print(GPS.month, DEC); Serial.print("/20");
   Serial.println(GPS.year, DEC);*/
-  //Serial.print("Fix: "); Serial.print((int)GPS.fix);
+  Serial.print("Fix: "); Serial.print((int)GPS.fix);
   //Serial.print(" quality: "); Serial.println((int)GPS.fixquality);
   if (GPS.fix) {
     //open the file
@@ -323,6 +269,7 @@ void loop()                     // run over and over again
     //Writes data to SD card
     logfile.print(lat + " " + lon + ", ");
     
+    //GPS Time
     Serial.print(GPS.hour, DEC); Serial.print(':');
     Serial.print(GPS.minute, DEC); Serial.print(":");
     Serial.print(GPS.seconds, DEC);  Serial.print(", ");

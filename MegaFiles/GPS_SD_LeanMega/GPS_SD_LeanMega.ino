@@ -2,6 +2,20 @@
 Converts the GPS location so that you can directly input into google maps
 */
 
+
+// Test code for Adafruit GPS modules using MTK3329/MTK3339 driver
+//
+// This code shows how to listen to the GPS module in an interrupt
+// which allows the program to have more 'freedom' - just parse
+// when a new NMEA sentence is available! Then access data when
+// desired.
+//
+// Tested and works great with the Adafruit Ultimate GPS module
+// using MTK33x9 chipset
+//    ------> http://www.adafruit.com/products/746
+// Pick one up today at the Adafruit electronics shop
+// and help support open source hardware & software! -ada
+
 #include <Adafruit_GPS.h>
 #include <SoftwareSerial.h>
 #include <SPI.h>
@@ -12,7 +26,30 @@ Converts the GPS location so that you can directly input into google maps
 #include <Adafruit_BNO055.h>
 #include <utility/imumaths.h>
 
-#define mySerial Serial1
+// If you're using a GPS module:
+// Connect the GPS Power pin to 5V
+// Connect the GPS Ground pin to ground
+// If using software serial (sketch example default):
+//   Connect the GPS TX (transmit) pin to Digital 3
+//   Connect the GPS RX (receive) pin to Digital 2
+// If using hardware serial (e.g. Arduino Mega):
+//   Connect the GPS TX (transmit) pin to Arduino RX3
+//   Connect the GPS RX (receive) pin to matching TX3
+
+// If you're using the Adafruit GPS shield, change
+// SoftwareSerial mySerial(3, 2); -> SoftwareSerial mySerial(8, 7);
+// and make sure the switch is set to SoftSerial
+
+// If using software serial, keep this line enabled
+// (you can change the pin numbers to match your wiring):
+//SoftwareSerial mySerial(8, 7);
+
+// If using hardware serial (e.g. Arduino Mega), comment out the
+// above SoftwareSerial line, and enable this line instead
+// (you can change the Serial number to match your wiring):
+
+//HardwareSerial mySerial = Serial1;
+#define mySerial Serial3
 
 
 Adafruit_GPS GPS(&mySerial);
@@ -29,6 +66,8 @@ Adafruit_BNO055 bno = Adafruit_BNO055(55);
 /* set to true to only log to SD when GPS has a fix, for debugging, keep it false */
 #define LOG_FIXONLY false
 
+// this keeps track of whether we're using the interrupt
+// off by default!
 boolean usingInterrupt = false;
 void useInterrupt(boolean); // Func prototype keeps Arduino 0023 happy
 
@@ -54,6 +93,14 @@ uint8_t parseHex(char c) {
 
 // blink out an error code
 void error(uint8_t errno) {
+  /*
+  if (SD.errorCode()) {
+   putstring("SD error: ");
+   Serial.print(card.errorCode(), HEX);
+   Serial.print(',');
+   Serial.println(card.errorData(), HEX);
+   }
+   */
   while (1) {
     uint8_t i;
     for (i = 0; i < errno; i++) {
@@ -71,6 +118,7 @@ void error(uint8_t errno) {
 char filename[15];
 void setup()
 {
+
   // connect at 115200 so we can read the GPS fast enough and echo without dropping chars
   // also spit it out
   Serial.begin(115200);
@@ -83,8 +131,8 @@ void setup()
   pinMode(53, OUTPUT);
 
   // see if the card is present and can be initialized:
-  //if (!SD.begin(chipSelect)) {      
-  if (!SD.begin(chipSelect)) {  
+  //if (!SD.begin(chipSelect, 11, 12, 13)) {
+  if (!SD.begin(chipSelect)) {      // if you're using an UNO, you can use this line instead
     Serial.println("Card init. failed!");
     error(2);
   }
@@ -153,6 +201,7 @@ void setup()
   }
   delay(1000);
   bno.setExtCrystalUse(true);
+
 }
 
 
@@ -161,6 +210,8 @@ SIGNAL(TIMER0_COMPA_vect) {
   char c = GPS.read();
   // if you want to debug, this is a good time to do it!
 #ifdef UDR0
+  //if (GPSECHO)
+  //if (c) UDR0 = c;
   // writing direct to UDR0 is much much faster than Serial.print
   // but only one character can be written at a time.
 #endif
@@ -181,13 +232,16 @@ void useInterrupt(boolean v) {
 }
 
 uint32_t timer = millis();
-void loop()
+void loop()                     // run over and over again
 {
   // in case you are not using the interrupt above, you'll
   // need to 'hand query' the GPS, not suggested :(
   if (! usingInterrupt) {
     // read data from the GPS in the 'main loop'
     char c = GPS.read();
+    // if you want to debug, this is a good time to do it!
+    //if (GPSECHO)
+    //if (c) Serial.print(c);
   }
 
   // if a sentence is received, we can check the checksum, parse it...
@@ -201,24 +255,7 @@ void loop()
       return;  // we can fail to parse a sentence in which case we should just wait for another
   }
 
-  // if millis() or timer wraps around, we'll just reset it
-  //if (timer > millis())  timer = millis();
 
-  // approximately every 2 seconds or so, print out the current stats
-  //if (millis() - timer > 2000) {
-  //timer = millis(); // reset the timer
-
-  /*Serial.print("\nTime: ");
-  Serial.print(GPS.hour, DEC); Serial.print(':');
-  Serial.print(GPS.minute, DEC); Serial.print(':');
-  Serial.print(GPS.seconds, DEC); Serial.print('.');
-  Serial.println(GPS.milliseconds);
-  Serial.print("Date: ");
-  Serial.print(GPS.day, DEC); Serial.print('/');
-  Serial.print(GPS.month, DEC); Serial.print("/20");
-  Serial.println(GPS.year, DEC);*/
-  Serial.print("Fix: "); Serial.print((int)GPS.fix);
-  //Serial.print(" quality: "); Serial.println((int)GPS.fixquality);
   if (GPS.fix) {
     //open the file
     logfile = SD.open(filename, FILE_WRITE);
@@ -268,20 +305,22 @@ void loop()
     Serial.print(lat + " " + lon + ", ");
     //Writes data to SD card
     logfile.print(lat + " " + lon + ", ");
-    
-    //GPS Time
+
+    //-------------
+    //  GPS TIME & Speed (knots)
+    //-------------
     Serial.print(GPS.hour, DEC); Serial.print(':');
-    Serial.print(GPS.minute, DEC); Serial.print(":");
-    Serial.print(GPS.seconds, DEC);  Serial.print(", ");
-    //Write time to SD card
+    Serial.print(GPS.minute, DEC); Serial.print(':');
+    Serial.print(GPS.seconds, DEC); Serial.print(", ");
+    
     logfile.print(GPS.hour, DEC); logfile.print(':');
     logfile.print(GPS.minute, DEC); logfile.print(':');
-    logfile.print(GPS.seconds, DEC);  logfile.print(", ");
+    logfile.print(GPS.seconds, DEC); logfile.print(", ");
     
-    //GPS Speed
-    Serial.print(GPS.speed); Serial.print(', ');
-    logfile.print(GPS.speed); logfile.print(', ');
-
+    //SPEED (knots)
+    //MPH = 1.15077945*knots
+    Serial.print(GPS.speed*1.15077945); Serial.print(", ");
+    logfile.print(GPS.speed*1.15077945); logfile.print(", ");
 
     /* Get a new sensor event - BNO055 */
     sensors_event_t event;
@@ -303,7 +342,6 @@ void loop()
     Serial.print(GPS.latitudeDegrees, 4);
     Serial.print(", ");
     Serial.println(GPS.longitudeDegrees, 4);
-
     Serial.print("Speed (knots): "); Serial.println(GPS.speed);
     Serial.print("Angle: "); Serial.println(GPS.angle);
     Serial.print("Altitude: "); Serial.println(GPS.altitude);

@@ -6,7 +6,7 @@ Converts the GPS location so that you can directly input into google maps
 ---------------------------------------
 CSV Format
 ---------------------------------------
-latitude, longitude, hour:minute:seconds, GPS speed, lean angle, RPM, throttle position
+latitude, longitude, hour:minute:seconds.milliseconds, GPS speed (MPH), lean angle, RPM, throttle position
 
 */
 #include <Adafruit_GPS.h>
@@ -20,7 +20,7 @@ latitude, longitude, hour:minute:seconds, GPS speed, lean angle, RPM, throttle p
 #include <utility/imumaths.h>
 #include <OBD.h>
 
-#define mySerial Serial1
+#define mySerial Serial3
 
 Adafruit_GPS GPS(&mySerial);
 
@@ -47,6 +47,8 @@ void useInterrupt(boolean); // Func prototype keeps Arduino 0023 happy
 //Name of the file
 File logfile;
 
+//boolean used to write column headings one time at top of file
+boolean firstRun = true;
 
 // read a Hex value and return the decimal equivalent
 uint8_t parseHex(char c) {
@@ -91,7 +93,7 @@ void setup()
   pinMode(53, OUTPUT);
 
   // see if the card is present and can be initialized:
-  if (!SD.begin(chipSelect)) {      
+  if (!SD.begin(chipSelect)) {
     Serial.println("Card init. failed!");
     error(2);
   }
@@ -144,12 +146,13 @@ void setup()
 
 
   //Title line, add or remove as you add and remove logging items
-  logfile.println("GPS Location, Time, GPS Speed, Lean Angle");
+  Serial.println("GPS Location, Time, GPS Speed(MPH), Lean Angle, RPM, Throttle Position");
+  logfile.println("GPS Location, Time, GPS Speed(MPH), Lean Angle, RPM, Throttle Position");
 
   //----------------------------------
   // BNO055 SETUP
   //----------------------------------
-  Serial.begin(9600);
+  //Serial.begin(9600);
 
   /* Initialise the sensor */
   if (!bno.begin())
@@ -160,16 +163,21 @@ void setup()
   }
   delay(1000);
   bno.setExtCrystalUse(true);
-  
+
   /*
     OBD SETUP
   */
   //start OBD2 communication with adapter
   obd.begin();
+  int obdTries = 0;
   //keep trying to connect until successful
-  while(!obd.init());
-  
-  Serial.println("Latitude, Longitude, Hours:Minutes:Seconds, GPS speed, lean angle, RPM, throttle position");
+  while (!obd.init() && (obdTries < 5)) {
+    Serial.print("No OBD2 Connection!  Tries: ");
+    Serial.println(obdTries + 1);
+    //delay half a second and try again
+    delay(500);
+    obdTries++;
+  };
 }
 
 
@@ -198,6 +206,10 @@ void useInterrupt(boolean v) {
 }
 
 uint32_t timer = millis();
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//          MAIN LOOP
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void loop()
 {
   // in case you are not using the interrupt above, you'll
@@ -218,22 +230,23 @@ void loop()
       return;  // we can fail to parse a sentence in which case we should just wait for another
   }
 
-  // if millis() or timer wraps around, we'll just reset it
-  //if (timer > millis())  timer = millis();
-
-  // approximately every 2 seconds or so, print out the current stats
-  //if (millis() - timer > 2000) {
-  //timer = millis(); // reset the timer
-
   /*Serial.print("\nTime: ");
   Serial.print(GPS.hour, DEC); Serial.print(':');
   Serial.print(GPS.minute, DEC); Serial.print(':');
   Serial.print(GPS.seconds, DEC); Serial.print('.');
   Serial.println(GPS.milliseconds);*/
-  
+
   if (GPS.fix) {
     //open the file
     logfile = SD.open(filename, FILE_WRITE);
+
+    //Print out the column headings only on the first run through so it is
+    //the first line of the CSV file
+    if (firstRun == true) {
+      Serial.println("Latitude Longitude, Hours:Minutes:Seconds, GPS speed, lean angle, RPM, throttle position");
+      logfile.println("Latitude Longitude, Hours:Minutes:Seconds, GPS speed, lean angle, RPM, throttle position");
+      firstRun = false;
+    }
 
     String lat = String(GPS.latitude, 4);
     lat = lat + (GPS.lat); //tells whether N/S
@@ -280,19 +293,22 @@ void loop()
     Serial.print(lat + " " + lon + ", ");
     //Writes data to SD card
     logfile.print(lat + " " + lon + ", ");
-    
+
     //GPS Time
-    Serial.print(GPS.hour, DEC); Serial.print(':');
+    Serial.print(GPS.hour, DEC); Serial.print(":");
     Serial.print(GPS.minute, DEC); Serial.print(":");
-    Serial.print(GPS.seconds, DEC);  Serial.print(", ");
+    Serial.print(GPS.seconds, DEC); Serial.print(", ");
     //Write time to SD card
     logfile.print(GPS.hour, DEC); logfile.print(':');
     logfile.print(GPS.minute, DEC); logfile.print(':');
-    logfile.print(GPS.seconds, DEC);  logfile.print(", ");
-    
+    logfile.print(GPS.seconds, DEC); logfile.print(", ");
+
     //GPS Speed
-    Serial.print(GPS.speed); Serial.print(', ');
-    logfile.print(GPS.speed); logfile.print(', ');
+    float currentSpeed = GPS.speed;
+    currentSpeed = mphConversion(currentSpeed);
+    //Serial.print("(currentSpeed "); Serial.print(currentSpeed); Serial.print(")");
+    Serial.print(currentSpeed); Serial.print(", ");
+    logfile.print(currentSpeed); logfile.print(", ");
 
 
     /* Get a new sensor event - BNO055 */
@@ -306,26 +322,36 @@ void loop()
     Serial.print(event.orientation.y, 4);// Serial.print("\n");
     //Log the Lean Angle
     logfile.print(event.orientation.y, 4); //logfile.print("\n");
-
+    delay(BNO055_SAMPLERATE_DELAY_MS);
     //Log the throttle position and RPM by calling the OBD2 function
     obdInfo();
 
 
     //close file after writing
     logfile.close();
-    delay(BNO055_SAMPLERATE_DELAY_MS);
 
   }
+  //else if(!GPS.fix){
+  //     Serial.println("No GPS Fix!");
+  //  }
   delay(100);
-  //}
 }
 
-void obdInfo(){
-    int rpmValue, throttlePos;
-    if(obd.read(PID_RPM, rpmValue)){
-     if(obd.read(PID_THROTTLE, throttlePos)){
-       Serial.println(rpmValue + ", " + throttlePos);
-       logfile.println(rpmValue + ", " + throttlePos);
-     } 
+void obdInfo() {
+  int rpmValue, throttlePos;
+  if (obd.read(PID_RPM, rpmValue)) {
+    if (obd.read(PID_THROTTLE, throttlePos)) {
+      Serial.print(rpmValue); Serial.print(", "); Serial.print(throttlePos);
+      logfile.print(rpmValue); logfile.print(", "); logfile.println(throttlePos);
+    }
+  } else {
+    Serial.println(",");
+    logfile.println(",");
   }
+}
+
+//Convert speed in knots to miles per hour
+float mphConversion(float knots){
+  float mph = knots*1.15077945;
+  return mph;
 }

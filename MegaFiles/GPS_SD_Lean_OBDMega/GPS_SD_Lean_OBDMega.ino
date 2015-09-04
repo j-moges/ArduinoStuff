@@ -8,6 +8,8 @@ CSV Format
 ---------------------------------------
 latitude, longitude, hour:minute:seconds.milliseconds, GPS speed (MPH), lean angle, RPM, throttle position
 
+//OBD2 White to TX1 Yellow to RX1
+
 */
 #include <Adafruit_GPS.h>
 #include <SoftwareSerial.h>
@@ -319,9 +321,9 @@ void loop()
     //String leanAngleString = String(leanAngle);
     /* Display the floating point data */
     //Serial.print("\tY: ");
-    Serial.print(event.orientation.y, 4);// Serial.print("\n");
+    Serial.print(event.orientation.y, 4); Serial.print(", ");
     //Log the Lean Angle
-    logfile.print(event.orientation.y, 4); //logfile.print("\n");
+    logfile.print(event.orientation.y, 4); logfile.print(", ");
     delay(BNO055_SAMPLERATE_DELAY_MS);
     //Log the throttle position and RPM by calling the OBD2 function
     obdInfo();
@@ -341,7 +343,7 @@ void obdInfo() {
   int rpmValue, throttlePos;
   if (obd.read(PID_RPM, rpmValue)) {
     if (obd.read(PID_THROTTLE, throttlePos)) {
-      Serial.print(rpmValue); Serial.print(", "); Serial.print(throttlePos);
+      Serial.print(rpmValue); Serial.print(", "); Serial.println(throttlePos);
       logfile.print(rpmValue); logfile.print(", "); logfile.println(throttlePos);
     }
   } else {

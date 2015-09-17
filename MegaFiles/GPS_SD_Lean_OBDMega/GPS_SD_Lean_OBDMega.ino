@@ -8,7 +8,8 @@ CSV Format
 ---------------------------------------
 latitude, longitude, hour:minute:seconds.milliseconds, GPS speed (MPH), lean angle, RPM, throttle position
 
-//OBD2 White to TX1 Yellow to RX1
+//Switch on shield should be on SoftSerial
+//OBD2 - White to TX1 Yellow to RX1
 
 */
 #include <Adafruit_GPS.h>
@@ -25,6 +26,8 @@ latitude, longitude, hour:minute:seconds.milliseconds, GPS speed (MPH), lean ang
 #define mySerial Serial3
 
 Adafruit_GPS GPS(&mySerial);
+
+unsigned long delayTimer;  //always use unsigned long for Timer (using millis())
 
 COBD obd;
 
@@ -99,7 +102,7 @@ void setup()
     Serial.println("Card init. failed!");
     error(2);
   }
-  //char filename[15];
+
   strcpy(filename, "GPSLOG00.TXT");
   for (uint8_t i = 0; i < 100; i++) {
     filename[6] = '0' + i / 10;
@@ -124,10 +127,7 @@ void setup()
 
   // uncomment this line to turn on RMC (recommended minimum) and GGA (fix data) including altitude
   GPS.sendCommand(PMTK_SET_NMEA_OUTPUT_RMCGGA);
-  // uncomment this line to turn on only the "minimum recommended" data
-  //GPS.sendCommand(PMTK_SET_NMEA_OUTPUT_RMCONLY);
-  // For parsing data, we don't suggest using anything but either RMC only or RMC+GGA since
-  // the parser doesn't care about other sentences at this time
+
 
   // Set the update rate
   GPS.sendCommand(PMTK_SET_NMEA_UPDATE_1HZ);   // 1 Hz update rate
@@ -148,8 +148,8 @@ void setup()
 
 
   //Title line, add or remove as you add and remove logging items
-  Serial.println("GPS Location, Time, GPS Speed(MPH), Lean Angle, RPM, Throttle Position");
-  logfile.println("GPS Location, Time, GPS Speed(MPH), Lean Angle, RPM, Throttle Position");
+  //Serial.println("GPS Location, Time, GPS Speed(MPH), Lean Angle, RPM, Throttle Position");
+  //logfile.println("GPS Location, Time, GPS Speed(MPH), Lean Angle, RPM, Throttle Position");
 
   //----------------------------------
   // BNO055 SETUP
@@ -165,7 +165,7 @@ void setup()
   }
   delay(1000);
   bno.setExtCrystalUse(true);
-
+  
   /*
     OBD SETUP
   */
@@ -177,8 +177,11 @@ void setup()
     Serial.print("No OBD2 Connection!  Tries: ");
     Serial.println(obdTries + 1);
     //delay half a second and try again
-    delay(500);
-    obdTries++;
+    //delay(500);
+    delayTimer = millis();
+    if((millis() - delayTimer) > 500){
+      obdTries++;
+    }
   };
 }
 
@@ -231,12 +234,6 @@ void loop()
     if (!GPS.parse(GPS.lastNMEA()))   // this also sets the newNMEAreceived() flag to false
       return;  // we can fail to parse a sentence in which case we should just wait for another
   }
-
-  /*Serial.print("\nTime: ");
-  Serial.print(GPS.hour, DEC); Serial.print(':');
-  Serial.print(GPS.minute, DEC); Serial.print(':');
-  Serial.print(GPS.seconds, DEC); Serial.print('.');
-  Serial.println(GPS.milliseconds);*/
 
   if (GPS.fix) {
     //open the file
@@ -353,7 +350,7 @@ void obdInfo() {
 }
 
 //Convert speed in knots to miles per hour
-float mphConversion(float knots){
-  float mph = knots*1.15077945;
+float mphConversion(float knots) {
+  float mph = knots * 1.15077945;
   return mph;
 }

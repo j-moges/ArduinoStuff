@@ -1,5 +1,7 @@
 /*
-Converts the GPS location so that you can directly input into google maps
+Developed with libraries from:
+https://github.com/adafruit
+https://github.com/stanleyhuangyc/Freematics/tree/master/libraries
 */
 
 /*
@@ -7,10 +9,10 @@ Converts the GPS location so that you can directly input into google maps
 CSV Format
 ---------------------------------------
 latitude, longitude, hour:minute:seconds.milliseconds, GPS speed (MPH), lean angle, RPM, throttle position
+GPS Location, Time, GPS Speed(MPH), Lean Angle, RPM, Throttle Position
 
 //Switch on shield should be on SoftSerial
 //OBD2 - White to TX1 Yellow to RX1
-
 */
 #include <Adafruit_GPS.h>
 #include <SoftwareSerial.h>
@@ -86,6 +88,12 @@ void error(uint8_t errno) {
 char filename[15];
 void setup()
 {
+  //Flush all of the serial lines
+  Serial.flush();
+  Serial1.flush();
+  Serial2.flush();
+  Serial3.flush();
+  
   // connect at 115200 so we can read the GPS fast enough and echo without dropping chars
   // also spit it out
   Serial.begin(115200);
@@ -95,7 +103,7 @@ void setup()
   // output, even if you don't use it:
   pinMode(10, OUTPUT);
   digitalWrite(10, HIGH);
-  pinMode(53, OUTPUT);
+  pinMode(53, OUTPUT); //For Arduino Mega
 
   // see if the card is present and can be initialized:
   if (!SD.begin(chipSelect)) {
@@ -146,15 +154,9 @@ void setup()
   // Ask for firmware version
   mySerial.println(PMTK_Q_RELEASE);
 
-
-  //Title line, add or remove as you add and remove logging items
-  //Serial.println("GPS Location, Time, GPS Speed(MPH), Lean Angle, RPM, Throttle Position");
-  //logfile.println("GPS Location, Time, GPS Speed(MPH), Lean Angle, RPM, Throttle Position");
-
   //----------------------------------
   // BNO055 SETUP
   //----------------------------------
-  //Serial.begin(9600);
 
   /* Initialise the sensor */
   if (!bno.begin())
@@ -172,12 +174,10 @@ void setup()
   //start OBD2 communication with adapter
   obd.begin();
   int obdTries = 0;
-  //keep trying to connect until successful
+  //keep trying to connect until successful, if it takes too long or no connection skip OBD2 logging
   while (!obd.init() && (obdTries < 5)) {
     Serial.print("No OBD2 Connection!  Tries: ");
     Serial.println(obdTries + 1);
-    //delay half a second and try again
-    //delay(500);
     delayTimer = millis();
     if((millis() - delayTimer) > 500){
       obdTries++;
@@ -226,11 +226,6 @@ void loop()
 
   // if a sentence is received, we can check the checksum, parse it...
   if (GPS.newNMEAreceived()) {
-    // a tricky thing here is if we print the NMEA sentence, or data
-    // we end up not listening and catching other sentences!
-    // so be very wary if using OUTPUT_ALLDATA and trytng to print out data
-    //Serial.println(GPS.lastNMEA());   // this also sets the newNMEAreceived() flag to false
-
     if (!GPS.parse(GPS.lastNMEA()))   // this also sets the newNMEAreceived() flag to false
       return;  // we can fail to parse a sentence in which case we should just wait for another
   }
@@ -242,11 +237,11 @@ void loop()
     //Print out the column headings only on the first run through so it is
     //the first line of the CSV file
     if (firstRun == true) {
-      Serial.println("Latitude Longitude, Hours:Minutes:Seconds, GPS speed, lean angle, RPM, throttle position");
-      logfile.println("Latitude Longitude, Hours:Minutes:Seconds, GPS speed, lean angle, RPM, throttle position");
+      Serial.println("Latitude Longitude DDM, Hours:Minutes:Seconds, GPS speed, lean angle, RPM, throttle position");
+      logfile.println("Latitude Longitude DDM, Hours:Minutes:Seconds, GPS speed, lean angle, RPM, throttle position");
       firstRun = false;
     }
-
+    //DDM GPS conversion
     String lat = String(GPS.latitude, 4);
     lat = lat + (GPS.lat); //tells whether N/S
     String lon = String(GPS.longitude, 4);
@@ -254,7 +249,7 @@ void loop()
     //Serial.print("Lat and Lon: ");
     //Serial.print(lat);
     //Serial.println(lon);
-    //3530.1899N 8257.8662W
+    //3130.1899N 8457.8662W
 
     //latitude will not exceed 10 characters, longitude can be 10 or 11 characters
     String latFirst = lat.substring(0, 2);
@@ -305,7 +300,6 @@ void loop()
     //GPS Speed
     float currentSpeed = GPS.speed;
     currentSpeed = mphConversion(currentSpeed);
-    //Serial.print("(currentSpeed "); Serial.print(currentSpeed); Serial.print(")");
     Serial.print(currentSpeed); Serial.print(", ");
     logfile.print(currentSpeed); logfile.print(", ");
 
@@ -317,7 +311,6 @@ void loop()
     //Convert lean angle to String for logging
     //String leanAngleString = String(leanAngle);
     /* Display the floating point data */
-    //Serial.print("\tY: ");
     Serial.print(event.orientation.y, 4); Serial.print(", ");
     //Log the Lean Angle
     logfile.print(event.orientation.y, 4); logfile.print(", ");
@@ -330,10 +323,6 @@ void loop()
     logfile.close();
 
   }
-  //else if(!GPS.fix){
-  //     Serial.println("No GPS Fix!");
-  //  }
-  delay(100);
 }
 
 void obdInfo() {

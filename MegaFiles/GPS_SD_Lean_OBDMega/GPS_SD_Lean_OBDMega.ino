@@ -2,17 +2,46 @@
 Developed with libraries from:
 https://github.com/adafruit
 https://github.com/stanleyhuangyc/Freematics/tree/master/libraries
-*/
 
-/*
+
+---------------------------------------
+          WIRING
+---------------------------------------
+Switch on shield should be on SoftSerial
+
+SPI - Jump these wires
+Pin      Pin
+13   ->  52
+12   ->  50
+11   ->  51
+10   ->  53
+
+BNO055     Mega
+VIN    ->  5v
+GND    ->  GND
+SDA    ->  SDA
+SCL    ->  SCL
+
+From GPS Logger Shield to Mega
+------------------------------
+Shield      Mega
+TX      ->  RX3
+RX      ->  TX3
+
+From OBD2 Adapter to Mega
+-----------------------------
+Adapter      Mega
+White    ->  TX1
+Yellow   ->  RX1
+Red      ->  5V
+Black    ->  GND
+
+
 ---------------------------------------
 CSV Format
 ---------------------------------------
 latitude, longitude, hour:minute:seconds.milliseconds, GPS speed (MPH), lean angle, RPM, throttle position
 GPS Location, Time, GPS Speed(MPH), Lean Angle, RPM, Throttle Position
-
-//Switch on shield should be on SoftSerial
-//OBD2 - White to TX1 Yellow to RX1
 */
 #include <Adafruit_GPS.h>
 #include <SoftwareSerial.h>

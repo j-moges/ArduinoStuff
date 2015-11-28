@@ -167,9 +167,8 @@ void setup()
 
 
   // Set the update rate
-  GPS.sendCommand(PMTK_SET_NMEA_UPDATE_5HZ);   // 1 Hz update rate
-  // For the parsing code to work nicely and have time to sort thru the data, and
-  // print it out we don't suggest using anything higher than 1 Hz
+  GPS.sendCommand(PMTK_SET_NMEA_UPDATE_5HZ);   // 5 Hz update rate
+
 
   // Request updates on antenna status, comment out to keep quiet
   GPS.sendCommand(PGCMD_ANTENNA);
@@ -214,6 +213,9 @@ void setup()
   };
 }
 
+//--------------
+//  END SETUP
+//-------------
 
 // Interrupt is called once a millisecond, looks for any new GPS data, and stores it
 SIGNAL(TIMER0_COMPA_vect) {
@@ -261,13 +263,15 @@ void loop()
 
   if (GPS.fix) {
     //open the file
-    logfile = SD.open(filename, FILE_WRITE);
+//    logfile = SD.open(filename, FILE_WRITE);
 
     //Print out the column headings only on the first run through so it is
     //the first line of the CSV file
     if (firstRun == true) {
+      logfile = SD.open(filename, FILE_WRITE);
       Serial.println("Latitude Longitude DDM, Hours:Minutes:Seconds, GPS speed, lean angle, RPM, throttle position");
       logfile.println("Latitude Longitude DDM, Hours:Minutes:Seconds, GPS speed, lean angle, RPM, throttle position");
+      logfile.close();
       firstRun = false;
     }
     //DDM GPS conversion
@@ -315,23 +319,26 @@ void loop()
 
     Serial.print(lat + " " + lon + ", ");
     //Writes data to SD card
-    logfile.print(lat + " " + lon + ", ");
+//    logfile.print(lat + " " + lon + ", ");
+    
+    String myPosition = lat + " " + lon;
 
     //GPS Time
     Serial.print(GPS.hour, DEC); Serial.print(":");
     Serial.print(GPS.minute, DEC); Serial.print(":");
     Serial.print(GPS.seconds, DEC); Serial.print(", ");
     //Write time to SD card
-    logfile.print(GPS.hour, DEC); logfile.print(':');
-    logfile.print(GPS.minute, DEC); logfile.print(':');
-    logfile.print(GPS.seconds, DEC); logfile.print(", ");
+//    logfile.print(GPS.hour, DEC); logfile.print(':');
+//    logfile.print(GPS.minute, DEC); logfile.print(':');
+//    logfile.print(GPS.seconds, DEC); logfile.print(", ");
+    String myTime = String(GPS.hour, DEC) + ':' + String(GPS.minute, DEC) + ':' + String(GPS.seconds, DEC);
 
     //GPS Speed
     float currentSpeed = GPS.speed;
     currentSpeed = mphConversion(currentSpeed);
     Serial.print(currentSpeed); Serial.print(", ");
-    logfile.print(currentSpeed); logfile.print(", ");
-
+//    logfile.print(currentSpeed); logfile.print(", ");
+    String mySpeed = String(currentSpeed);
 
     /* Get a new sensor event - BNO055 */
     sensors_event_t event;
@@ -342,11 +349,25 @@ void loop()
     /* Display the floating point data */
     Serial.print(event.orientation.y, 4); Serial.print(", ");
     //Log the Lean Angle
-    logfile.print(event.orientation.y, 4); logfile.print(", ");
+//    logfile.print(event.orientation.y, 4); logfile.print(", ");
+    String myLeanAngle = String(event.orientation.y, 4);
     delay(BNO055_SAMPLERATE_DELAY_MS);
     //Log the throttle position and RPM by calling the OBD2 function
-    obdInfo();
-
+    
+    
+    
+    logfile = SD.open(filename, FILE_WRITE);
+    
+    logfile.print(myPosition); 
+    logfile.print(", ");
+    logfile.print(myTime);
+    logfile.print(", ");
+    logfile.print(mySpeed);
+    logfile.print(", ");
+    logfile.print(myLeanAngle);
+    logfile.print(", ");
+    
+    obdInfo();  //writes OBD info to the file
 
     //close file after writing
     logfile.close();

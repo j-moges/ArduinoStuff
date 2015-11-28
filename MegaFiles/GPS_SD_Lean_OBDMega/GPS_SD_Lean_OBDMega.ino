@@ -40,7 +40,7 @@ Black    ->  GND
 ---------------------------------------
 CSV Format
 ---------------------------------------
-latitude, longitude, hour:minute:seconds.milliseconds, GPS speed (MPH), lean angle, RPM, throttle position
+latitude longitude, hour:minute:seconds.milliseconds, GPS speed (MPH), lean angle, RPM, throttle position
 GPS Location, Time, GPS Speed(MPH), Lean Angle, RPM, Throttle Position
 */
 #include <Adafruit_GPS.h>
@@ -167,7 +167,7 @@ void setup()
 
 
   // Set the update rate
-  GPS.sendCommand(PMTK_SET_NMEA_UPDATE_1HZ);   // 1 Hz update rate
+  GPS.sendCommand(PMTK_SET_NMEA_UPDATE_5HZ);   // 1 Hz update rate
   // For the parsing code to work nicely and have time to sort thru the data, and
   // print it out we don't suggest using anything higher than 1 Hz
 
